@@ -1,160 +1,37 @@
 name: Build My Life Journal APK
-
 on:
   push:
-    branches:
-      - mylifejournal-apk-build
+    branches: [mylifejournal-apk-build]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   android-apk:
-    name: Compile and verify Android APK
+    name: Build and verify native Android APK
     runs-on: ubuntu-latest
     steps:
-      - name: Check out build branch
-        uses: actions/checkout@v4
-
-      - name: Reconstruct Android source archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat payload/chunk-*.b64 | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
-          set +e
-          unzip -t "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
-          archive_status=$?
-          set -e
-          if [ "$archive_status" -gt 1 ]; then
-            echo "ZIP archive has a structural error (exit $archive_status)."
-            exit "$archive_status"
-          fi
-          mkdir -p "$RUNNER_TEMP/mlj-source"
-          set +e
-          unzip -oq "$RUNNER_TEMP/MyLifeJournalAndroid.zip" -d "$RUNNER_TEMP/mlj-source"
-          extract_status=$?
-          set -e
-          if [ "$extract_status" -gt 1 ]; then
-            echo "ZIP extraction failed (exit $extract_status)."
-            exit "$extract_status"
-          fi
-          test -f "$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid/settings.gradle"
-          echo "PROJECT_DIR=$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid" >> "$GITHUB_ENV"
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Configure preinstalled Android SDK
+      - name: Set up Android SDK
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
           echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
           echo "/usr/local/lib/android/sdk/build-tools/35.0.0" >> "$GITHUB_PATH"
-
-      - name: Install Android 35 SDK components
+      - name: Install SDK components
         run: |
           yes | sdkmanager --licenses >/dev/null
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Normalize Android Gradle project files
-        working-directory: ${{ env.PROJECT_DIR }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = 'MyLifeJournalAndroid'
-          include ':app'
-          EOF
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
-          android {
-              namespace 'com.mylifejournal.app'
-              compileSdk 35
-              defaultConfig {
-                  applicationId 'com.mylifejournal.app'
-                  minSdk 23
-                  targetSdk 34
-                  versionCode 1
-                  versionName '1.0'
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          EOF
-          echo "Gradle project settings:"
-          cat settings.gradle
-          test -s app/src/main/java/com/mylifejournal/app/MainActivity.java
-          test -s app/src/main/assets/www/index.html
-          mkdir -p app/src/main
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="false"
-                  android:label="My Life Journal"
-                  android:supportsRtl="true"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:configChanges="keyboardHidden|orientation|screenSize"
-                      android:exported="true"
-                      android:screenOrientation="unspecified">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-          test -s app/src/main/AndroidManifest.xml
-          echo "Android app sources:"
-          find app/src/main -maxdepth 3 -type f -printf '%P\\n' | sort
-
-      - name: Confirm Android module is included
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle --no-daemon --console=plain projects
-
-      - name: Build debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Build native app
         run: gradle --no-daemon --stacktrace --console=plain :app:assembleDebug
-
-      - name: Verify APK package and signature
-        working-directory: ${{ env.PROJECT_DIR }}
-        shell: bash
+      - name: Verify APK
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
@@ -162,11 +39,11 @@ jobs:
           unzip -t "$APK"
           aapt dump badging "$APK" | grep -E "^package:|^application-label:"
           apksigner verify --verbose "$APK"
-
-      - name: Upload downloadable APK
-        uses: actions/upload-artifact@v4
+          unzip -p "$APK" assets/ui.json | grep -q '"navigation"'
+          echo "APK archive, package, signature and embedded JSON UI config verified."
+      - uses: actions/upload-artifact@v4
         with:
-          name: MyLifeJournal-debug-APK
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          name: MyLifeJournal-Native-v2-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
