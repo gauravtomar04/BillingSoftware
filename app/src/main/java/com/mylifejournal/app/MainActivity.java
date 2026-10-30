@@ -182,13 +182,11 @@ public class MainActivity extends Activity {
         hero.setBackground(gradient(0xFF7667D8, 0xFF9B8FEA, 25));
         padding(hero, 19, 18, 19, 18);
         hero.addView(pill("YOUR DAILY RESET", 0x44FFFFFF, Color.WHITE));
-        TextView heroTitle = text("A little better,
-every single day.", 26, Color.WHITE, true);
+        TextView heroTitle = text("A little better, every single day.", 26, Color.WHITE, true);
         LinearLayout.LayoutParams htp = new LinearLayout.LayoutParams(-1, -2);
         htp.topMargin = dp(14);
         hero.addView(heroTitle, htp);
-        TextView heroSub = text("Small steps today create a life
-you feel good waking up to.", 13, 0xFFF4F1FF, false);
+        TextView heroSub = text("Small steps today create a life you feel good waking up to.", 13, 0xFFF4F1FF, false);
         LinearLayout.LayoutParams hsp = new LinearLayout.LayoutParams(-1, -2);
         hsp.topMargin = dp(8);
         hero.addView(heroSub, hsp);
