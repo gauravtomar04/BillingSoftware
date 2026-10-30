@@ -22,9 +22,23 @@ jobs:
         run: |
           set -euo pipefail
           cat payload/chunk-*.b64 | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
+          set +e
           unzip -t "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
+          archive_status=$?
+          set -e
+          if [ "$archive_status" -gt 1 ]; then
+            echo "ZIP archive has a structural error (exit $archive_status)."
+            exit "$archive_status"
+          fi
           mkdir -p "$RUNNER_TEMP/mlj-source"
-          unzip -q "$RUNNER_TEMP/MyLifeJournalAndroid.zip" -d "$RUNNER_TEMP/mlj-source"
+          set +e
+          unzip -oq "$RUNNER_TEMP/MyLifeJournalAndroid.zip" -d "$RUNNER_TEMP/mlj-source"
+          extract_status=$?
+          set -e
+          if [ "$extract_status" -gt 1 ]; then
+            echo "ZIP extraction failed (exit $extract_status)."
+            exit "$extract_status"
+          fi
           test -f "$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid/settings.gradle"
           echo "PROJECT_DIR=$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid" >> "$GITHUB_ENV"
 
