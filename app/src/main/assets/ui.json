@@ -1,13 +1,19 @@
 {
   "app": "My Life Journal",
-  "design": "calm-native",
-  "background": "#F5F6FA",
-  "accent": "#6750A4",
+  "design": "soft-pastel-native",
+  "background": "#F7F6FB",
+  "accent": "#7667D8",
+  "accentDark": "#50439F",
+  "text": "#29243E",
+  "muted": "#858197",
+  "lavender": "#ECE9FF",
+  "peach": "#FFEDE5",
+  "mint": "#E5F4EC",
   "navigation": ["Home", "Journal", "Tasks", "Weekly"],
   "home": {
-    "headline": "A little better, daily.",
-    "moodPrompt": "How are you feeling today?",
-    "progressTitle": "Today's progress",
-    "journalAction": "Write today's journal"
+    "headline": "A little better, every single day.",
+    "moodPrompt": "How's your heart today?",
+    "progressTitle": "Today's little wins",
+    "journalAction": "Write journal"
   }
 }
