@@ -1,0 +1,1 @@
+Trigger final APK package and signature verification with Android build-tools on PATH.
