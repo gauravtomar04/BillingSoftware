@@ -65,9 +65,66 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Normalize Android Gradle project files
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = 'MyLifeJournalAndroid'
+          include ':app'
+          EOF
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.mylifejournal.app'
+              compileSdk 35
+              defaultConfig {
+                  applicationId 'com.mylifejournal.app'
+                  minSdk 23
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+          echo "Gradle project settings:"
+          cat settings.gradle
+          test -s app/src/main/java/com/mylifejournal/app/MainActivity.java
+          test -s app/src/main/assets/www/index.html
+
+      - name: Confirm Android module is included
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --console=plain projects
+
       - name: Build debug APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace --console=plain :app:assembleDebug
 
       - name: Verify APK package and signature
         working-directory: ${{ env.PROJECT_DIR }}
