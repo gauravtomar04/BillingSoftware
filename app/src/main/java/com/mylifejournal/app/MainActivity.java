@@ -2,11 +2,16 @@ package com.mylifejournal.app;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import android.widget.*;
@@ -19,20 +24,22 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private int bg = 0xFFF7F6FB, ink = 0xFF29243E, muted = 0xFF858197;
-    private int accent = 0xFF7667D8, accentDark = 0xFF50439F;
-    private int lavender = 0xFFECE9FF, peach = 0xFFFFEDE5, mint = 0xFFE5F4EC;
+    private int bg = 0xFFF7F5FA, surface = 0xFFFFFBFE, surfaceVariant = 0xFFF1ECF4;
+    private int ink = 0xFF1D1B20, muted = 0xFF625B71, outline = 0xFFCAC4D0;
+    private int accent = 0xFF6750A4, accentDark = 0xFF4F378B;
+    private int lavender = 0xFFEADDFF, peach = 0xFFFFD8E4, mint = 0xFFDCECE0;
     private LinearLayout root, body;
     private JournalDb db;
     private JSONObject ui;
     private String page = "Home";
+    private String selectedMood = "";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         db = new JournalDb(this);
         loadUiConfig();
         getWindow().setStatusBarColor(bg);
-        getWindow().setNavigationBarColor(Color.WHITE);
+        getWindow().setNavigationBarColor(surface);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         show("Home");
     }
@@ -46,38 +53,89 @@ public class MainActivity extends Activity {
             while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
             in.close();
             ui = new JSONObject(out.toString("UTF-8"));
-            bg = Color.parseColor(ui.optString("background", "#F7F6FB"));
-            accent = Color.parseColor(ui.optString("accent", "#7667D8"));
-            accentDark = Color.parseColor(ui.optString("accentDark", "#50439F"));
-            ink = Color.parseColor(ui.optString("text", "#29243E"));
-            muted = Color.parseColor(ui.optString("muted", "#858197"));
-            lavender = Color.parseColor(ui.optString("lavender", "#ECE9FF"));
-            peach = Color.parseColor(ui.optString("peach", "#FFEDE5"));
-            mint = Color.parseColor(ui.optString("mint", "#E5F4EC"));
+            bg = Color.parseColor(ui.optString("background", "#F7F5FA"));
+            surface = Color.parseColor(ui.optString("surface", "#FFFBFE"));
+            surfaceVariant = Color.parseColor(ui.optString("surfaceVariant", "#F1ECF4"));
+            accent = Color.parseColor(ui.optString("accent", "#6750A4"));
+            accentDark = Color.parseColor(ui.optString("accentDark", "#4F378B"));
+            ink = Color.parseColor(ui.optString("text", "#1D1B20"));
+            muted = Color.parseColor(ui.optString("muted", "#625B71"));
+            outline = Color.parseColor(ui.optString("outline", "#CAC4D0"));
+            lavender = Color.parseColor(ui.optString("lavender", "#EADDFF"));
+            peach = Color.parseColor(ui.optString("peach", "#FFD8E4"));
+            mint = Color.parseColor(ui.optString("mint", "#DCECE0"));
         } catch (Exception e) { ui = new JSONObject(); }
     }
 
     private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + .5f); }
+
     private GradientDrawable solid(int color, int radius) {
         GradientDrawable d = new GradientDrawable();
-        d.setColor(color); d.setCornerRadius(dp(radius)); return d;
+        d.setColor(color);
+        d.setCornerRadius(dp(radius));
+        return d;
     }
+
+    private GradientDrawable outlined(int color, int radius) {
+        GradientDrawable d = solid(color, radius);
+        d.setStroke(dp(1), outline);
+        return d;
+    }
+
     private GradientDrawable gradient(int start, int end, int radius) {
         GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{start, end});
-        d.setCornerRadius(dp(radius)); return d;
+        d.setCornerRadius(dp(radius));
+        return d;
     }
+
     private TextView text(String value, int size, int color, boolean bold) {
         TextView t = new TextView(this);
-        t.setText(value); t.setTextSize(size); t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-        else t.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        t.setText(value);
+        t.setTextSize(size);
+        t.setTextColor(color);
+        t.setTypeface(Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL));
         t.setIncludeFontPadding(true);
         return t;
     }
-    private LinearLayout column() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL); return l; }
-    private LinearLayout horizontal() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.HORIZONTAL); l.setGravity(Gravity.CENTER_VERTICAL); return l; }
-    private void padding(View v, int left, int top, int right, int bottom) { v.setPadding(dp(left), dp(top), dp(right), dp(bottom)); }
-    private void space(LinearLayout parent, int height) { View v = new View(this); parent.addView(v, new LinearLayout.LayoutParams(1, dp(height))); }
+
+    private LinearLayout column() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        return l;
+    }
+
+    private LinearLayout horizontal() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        return l;
+    }
+
+    private void padding(View v, int left, int top, int right, int bottom) {
+        v.setPadding(dp(left), dp(top), dp(right), dp(bottom));
+    }
+
+    private void space(LinearLayout parent, int height) {
+        View v = new View(this);
+        parent.addView(v, new LinearLayout.LayoutParams(1, dp(height)));
+    }
+
+    private void entrance(View v, int index) {
+        v.setAlpha(0f);
+        v.setTranslationY(dp(10));
+        v.animate().alpha(1f).translationY(0f).setStartDelay(index * 35L)
+            .setDuration(240).setInterpolator(new DecelerateInterpolator()).start();
+    }
+
+    private void press(View v, Runnable action) {
+        v.animate().cancel();
+        v.animate().scaleX(.975f).scaleY(.975f).setDuration(85)
+            .withEndAction(() -> {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(130)
+                    .setInterpolator(new DecelerateInterpolator()).start();
+                action.run();
+            }).start();
+    }
 
     private void show(String target) {
         page = target;
@@ -86,23 +144,26 @@ public class MainActivity extends Activity {
         setContentView(root);
         ScrollView scroller = new ScrollView(this);
         scroller.setFillViewport(true);
+        scroller.setClipToPadding(false);
         body = column();
-        padding(body, 20, 16, 20, 20);
+        padding(body, 20, 16, 20, 22);
         scroller.addView(body);
         root.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
         if ("Home".equals(target)) home();
         else if ("Journal".equals(target)) journal();
         else if ("Tasks".equals(target)) tasks();
         else weekly();
+        for (int i = 0; i < body.getChildCount(); i++) entrance(body.getChildAt(i), i);
         bottomNavigation();
     }
 
     private void bottomNavigation() {
         LinearLayout nav = horizontal();
-        nav.setBackgroundColor(Color.WHITE);
+        nav.setBackgroundColor(surface);
+        nav.setElevation(dp(8));
         padding(nav, 8, 8, 8, 8);
         String[] fallback = {"Home", "Journal", "Tasks", "Weekly"};
-        String[] icons = {"⌂", "✎", "✓", "▥"};
+        String[] icons = {"home", "journal", "tasks", "chart"};
         JSONArray configured = ui.optJSONArray("navigation");
         String[] names = fallback;
         if (configured != null && configured.length() == 4) {
@@ -114,24 +175,29 @@ public class MainActivity extends Activity {
             boolean active = destination.equals(page);
             LinearLayout item = column();
             item.setGravity(Gravity.CENTER);
-            item.setBackground(solid(active ? lavender : Color.TRANSPARENT, 16));
-            padding(item, 5, 5, 5, 5);
-            item.addView(text(icons[i], 21, active ? accentDark : muted, true));
+            item.setBackground(solid(active ? lavender : Color.TRANSPARENT, 18));
+            padding(item, 5, 7, 5, 6);
+            IconView icon = new IconView(icons[i], active ? accentDark : muted);
+            item.addView(icon, new LinearLayout.LayoutParams(dp(23), dp(23)));
             TextView label = text(destination, 10, active ? accentDark : muted, active);
-            item.addView(label);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
+            labelParams.topMargin = dp(2);
+            item.addView(label, labelParams);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
             lp.setMargins(dp(3), 0, dp(3), 0);
             nav.addView(item, lp);
-            item.setOnClickListener(v -> show(destination));
+            item.setOnClickListener(v -> press(v, () -> show(destination)));
         }
+        nav.setAlpha(0f);
         root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
+        nav.animate().alpha(1f).setDuration(220).start();
     }
 
     private LinearLayout card() {
         LinearLayout c = column();
-        c.setBackground(solid(Color.WHITE, 22));
+        c.setBackground( surface == Color.WHITE ? solid(surface, 24) : outlined(surface, 24));
         padding(c, 17, 16, 17, 16);
-        c.setElevation(dp(2));
+        c.setElevation(dp(1));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.bottomMargin = dp(14);
         body.addView(c, lp);
@@ -139,9 +205,9 @@ public class MainActivity extends Activity {
     }
 
     private TextView pill(String label, int color, int textColor) {
-        TextView t = text(label, 11, textColor, true);
+        TextView t = text(label, 10, textColor, true);
         t.setGravity(Gravity.CENTER);
-        padding(t, 11, 6, 11, 6);
+        padding(t, 11, 7, 11, 7);
         t.setBackground(solid(color, 30));
         return t;
     }
@@ -150,13 +216,14 @@ public class MainActivity extends Activity {
         TextView e = text(eyebrow.toUpperCase(Locale.ROOT), 10, accentDark, true);
         e.setLetterSpacing(.12f);
         body.addView(e);
-        TextView h = text(heading, 29, ink, true);
+        TextView h = text(heading, 28, ink, true);
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
         hp.topMargin = dp(4);
         body.addView(h, hp);
         TextView s = text(subheading, 13, muted, false);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
-        sp.topMargin = dp(4); sp.bottomMargin = dp(17);
+        sp.topMargin = dp(4);
+        sp.bottomMargin = dp(17);
         body.addView(s, sp);
     }
 
@@ -165,24 +232,25 @@ public class MainActivity extends Activity {
         LinearLayout top = horizontal();
         LinearLayout greeting = column();
         greeting.addView(text("A FRESH START", 10, accentDark, true));
-        TextView name = text("Hello, Gaurav ✨", 25, ink, true);
+        TextView name = text("Hello, Gaurav", 25, ink, true);
         LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
         np.topMargin = dp(3);
         greeting.addView(name, np);
         greeting.addView(text(date, 12, muted, false));
         top.addView(greeting, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView avatar = text("✦", 23, accentDark, true);
+        LinearLayout avatar = new LinearLayout(this);
         avatar.setGravity(Gravity.CENTER);
-        avatar.setBackground(solid(lavender, 19));
+        avatar.setBackground(solid(lavender, 18));
+        avatar.addView(new IconView("sparkle", accentDark), new LinearLayout.LayoutParams(dp(24), dp(24)));
         top.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
         body.addView(top);
         space(body, 17);
 
         LinearLayout hero = column();
-        hero.setBackground(gradient(0xFF7667D8, 0xFF9B8FEA, 25));
+        hero.setBackground(gradient(0xFF6750A4, 0xFF8A78C8, 25));
         padding(hero, 19, 18, 19, 18);
-        hero.addView(pill("YOUR DAILY RESET", 0x44FFFFFF, Color.WHITE));
-        TextView heroTitle = text("A little better, every single day.", 26, Color.WHITE, true);
+        hero.addView(pill("YOUR DAILY RESET", 0x33FFFFFF, Color.WHITE));
+        TextView heroTitle = text("A little better, every single day.", 25, Color.WHITE, true);
         LinearLayout.LayoutParams htp = new LinearLayout.LayoutParams(-1, -2);
         htp.topMargin = dp(14);
         hero.addView(heroTitle, htp);
@@ -200,29 +268,40 @@ public class MainActivity extends Activity {
         moodTitles.addView(text("How's your heart today?", 17, ink, true));
         moodTitles.addView(text("Take a moment to check in.", 12, muted, false));
         moodHead.addView(moodTitles, new LinearLayout.LayoutParams(0, -2, 1));
-        moodHead.addView(pill("MOOD", peach, 0xFFB16C53));
+        moodHead.addView(pill("MOOD", peach, 0xFF7D294B));
         mood.addView(moodHead);
         LinearLayout moods = horizontal();
         String[] emojis = {"😞", "😕", "😐", "🙂", "😊"};
         String[] labels = {"Low", "Meh", "Okay", "Good", "Great"};
+        TextView[] faces = new TextView[emojis.length];
+        TextView[] moodLabels = new TextView[labels.length];
         for (int i = 0; i < emojis.length; i++) {
             final String selected = labels[i];
             LinearLayout option = column();
             option.setGravity(Gravity.CENTER);
             TextView face = text(emojis[i], 23, ink, false);
             face.setGravity(Gravity.CENTER);
-            face.setBackground(solid(i == 4 ? mint : bg, 15));
+            face.setBackground(solid(selectedMood.equals(selected) ? lavender : surfaceVariant, 15));
+            faces[i] = face;
             option.addView(face, new LinearLayout.LayoutParams(dp(43), dp(43)));
-            TextView label = text(labels[i], 9, muted, false);
+            TextView label = text(labels[i], 9, selectedMood.equals(selected) ? accentDark : muted, selectedMood.equals(selected));
             label.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-            lp.topMargin = dp(5);
-            option.addView(label, lp);
+            moodLabels[i] = label;
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
+            labelParams.topMargin = dp(5);
+            option.addView(label, labelParams);
             moods.addView(option, new LinearLayout.LayoutParams(0, -2, 1));
-            option.setOnClickListener(v -> {
+            option.setOnClickListener(v -> press(v, () -> {
+                selectedMood = selected;
                 db.mood(selected);
+                for (int j = 0; j < faces.length; j++) {
+                    boolean chosen = labels[j].equals(selectedMood);
+                    faces[j].setBackground(solid(chosen ? lavender : surfaceVariant, 15));
+                    moodLabels[j].setTextColor(chosen ? accentDark : muted);
+                    moodLabels[j].setTypeface(Typeface.create("sans-serif", chosen ? Typeface.BOLD : Typeface.NORMAL));
+                }
                 Toast.makeText(this, "Mood saved: " + selected, Toast.LENGTH_SHORT).show();
-            });
+            }));
         }
         LinearLayout.LayoutParams moodp = new LinearLayout.LayoutParams(-1, -2);
         moodp.topMargin = dp(15);
@@ -231,7 +310,7 @@ public class MainActivity extends Activity {
         LinearLayout progress = card();
         LinearLayout prHead = horizontal();
         prHead.addView(text("Today's little wins", 17, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
-        prHead.addView(pill(db.done() + "/" + db.total() + " DONE", mint, 0xFF478563));
+        prHead.addView(pill(db.done() + "/" + db.total() + " DONE", mint, 0xFF315B3A));
         progress.addView(prHead);
         TextView progressSub = text("Every completed step is worth celebrating.", 12, muted, false);
         LinearLayout.LayoutParams psp = new LinearLayout.LayoutParams(-1, -2);
@@ -247,19 +326,25 @@ public class MainActivity extends Activity {
         progress.addView(bar, bp);
 
         LinearLayout actions = horizontal();
-        LinearLayout journalAction = actionTile("✎", "Write journal", "Clear your mind", lavender, () -> show("Journal"));
-        LinearLayout taskAction = actionTile("✓", "Add a task", "One step at a time", peach, () -> show("Tasks"));
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(0, dp(115), 1);
+        LinearLayout journalAction = actionTile("journal", "Write journal", "Clear your mind", lavender, () -> show("Journal"));
+        LinearLayout taskAction = actionTile("plus", "Add a task", "One step at a time", peach, () -> show("Tasks"));
+        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(0, dp(120), 1);
         ap.rightMargin = dp(7);
         actions.addView(journalAction, ap);
-        LinearLayout.LayoutParams ap2 = new LinearLayout.LayoutParams(0, dp(115), 1);
+        LinearLayout.LayoutParams ap2 = new LinearLayout.LayoutParams(0, dp(120), 1);
         ap2.leftMargin = dp(7);
         actions.addView(taskAction, ap2);
         body.addView(actions);
         space(body, 5);
         LinearLayout quote = card();
-        quote.setBackground(solid(0xFFFFF7F0, 20));
-        quote.addView(text("A gentle reminder 💛", 14, 0xFF9A684F, true));
+        quote.setBackground(solid(0xFFFFF6F8, 22));
+        LinearLayout quoteHead = horizontal();
+        quoteHead.addView(new IconView("sparkle", 0xFF9A526C), new LinearLayout.LayoutParams(dp(19), dp(19)));
+        TextView quoteTitle = text("A gentle reminder", 14, 0xFF7D294B, true);
+        LinearLayout.LayoutParams qtp = new LinearLayout.LayoutParams(-2, -2);
+        qtp.leftMargin = dp(7);
+        quoteHead.addView(quoteTitle, qtp);
+        quote.addView(quoteHead);
         TextView quoteText = text("You don't have to figure out your whole life today. Just take the next kind step.", 14, ink, false);
         LinearLayout.LayoutParams qp = new LinearLayout.LayoutParams(-1, -2);
         qp.topMargin = dp(7);
@@ -268,9 +353,9 @@ public class MainActivity extends Activity {
 
     private LinearLayout actionTile(String icon, String title, String subtitle, int color, Runnable action) {
         LinearLayout tile = column();
-        tile.setBackground(solid(color, 20));
+        tile.setBackground(solid(color, 22));
         padding(tile, 14, 13, 12, 12);
-        tile.addView(text(icon, 22, accentDark, true));
+        tile.addView(new IconView(icon, accentDark), new LinearLayout.LayoutParams(dp(25), dp(25)));
         TextView h = text(title, 15, ink, true);
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
         hp.topMargin = dp(9);
@@ -279,16 +364,19 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
         sp.topMargin = dp(2);
         tile.addView(s, sp);
-        tile.setOnClickListener(v -> action.run());
+        tile.setOnClickListener(v -> press(v, action));
         return tile;
     }
 
     private EditText input(String hint, int lines) {
         EditText e = new EditText(this);
-        e.setHint(hint); e.setTextSize(14); e.setMinLines(lines);
-        e.setTextColor(ink); e.setHintTextColor(0xFFA7A3B4);
+        e.setHint(hint);
+        e.setTextSize(14);
+        e.setMinLines(lines);
+        e.setTextColor(ink);
+        e.setHintTextColor(muted);
         e.setGravity(Gravity.TOP | Gravity.START);
-        e.setBackground(solid(0xFFF7F6FA, 14));
+        e.setBackground(solid(surfaceVariant, 16));
         padding(e, 13, 12, 13, 12);
         return e;
     }
@@ -296,12 +384,13 @@ public class MainActivity extends Activity {
     private void primaryButton(LinearLayout parent, String label, Runnable action) {
         TextView b = text(label, 14, Color.WHITE, true);
         b.setGravity(Gravity.CENTER);
-        padding(b, 14, 13, 14, 13);
-        b.setBackground(gradient(accent, accentDark, 15));
+        padding(b, 14, 14, 14, 14);
+        b.setBackground(solid(accent, 18));
+        b.setElevation(dp(1));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(14);
         parent.addView(b, lp);
-        b.setOnClickListener(v -> action.run());
+        b.setOnClickListener(v -> press(v, action));
     }
 
     private void field(LinearLayout parent, String label, EditText value) {
@@ -315,14 +404,14 @@ public class MainActivity extends Activity {
         sectionHeading("A QUIET MOMENT", "Dear journal…", "Put your thoughts down. This space is just for you.");
         LinearLayout form = card();
         EditText good = input("One thing I'm grateful for…", 2);
-        field(form, "🌷  What went well today?", good);
+        field(form, "What went well today?", good);
         space(form, 15);
         EditText hard = input("Something that's on my mind…", 3);
-        field(form, "☁️  What felt difficult?", hard);
+        field(form, "What felt difficult?", hard);
         space(form, 15);
         EditText next = input("One small step for tomorrow…", 2);
-        field(form, "🌱  What will I try tomorrow?", next);
-        primaryButton(form, "Save my reflection  ✓", () -> {
+        field(form, "What will I try tomorrow?", next);
+        primaryButton(form, "Save my reflection", () -> {
             db.journal(good.getText().toString(), hard.getText().toString(), next.getText().toString());
             ((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(next.getWindowToken(), 0);
             Toast.makeText(this, "Your reflection is saved on this phone", Toast.LENGTH_SHORT).show();
@@ -344,15 +433,16 @@ public class MainActivity extends Activity {
         primaryButton(add, "＋  Add to my list", () -> {
             String value = taskInput.getText().toString().trim();
             if (!value.isEmpty()) { db.add(value); show("Tasks"); }
+            else taskInput.setError("Please enter a task");
         });
         LinearLayout list = card();
         LinearLayout listHead = horizontal();
         listHead.addView(text("Your checklist", 16, ink, true), new LinearLayout.LayoutParams(0, -2, 1));
-        listHead.addView(pill(db.done() + " COMPLETE", mint, 0xFF478563));
+        listHead.addView(pill(db.done() + " COMPLETE", mint, 0xFF315B3A));
         list.addView(listHead);
         JSONArray items = db.tasks();
         if (items.length() == 0) {
-            TextView empty = text("Nothing on your list yet. Add one gentle goal above 🌼", 13, muted, false);
+            TextView empty = text("Nothing on your list yet. Add one gentle goal above.", 13, muted, false);
             LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(-1, -2);
             ep.topMargin = dp(13);
             list.addView(empty, ep);
@@ -365,10 +455,11 @@ public class MainActivity extends Activity {
                 check.setText(item.getString("name"));
                 check.setTextSize(14);
                 check.setTextColor(ink);
+                check.setMinHeight(dp(48));
                 check.setButtonTintList(android.content.res.ColorStateList.valueOf(accent));
                 check.setChecked(item.getInt("done") == 1);
                 LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
-                cp.topMargin = dp(7);
+                cp.topMargin = dp(5);
                 list.addView(check, cp);
                 check.setOnCheckedChangeListener((button, checked) -> db.check(id, checked));
             } catch (Exception ignored) { }
@@ -377,7 +468,7 @@ public class MainActivity extends Activity {
 
     private void metric(LinearLayout parent, String value, String label, int color) {
         LinearLayout box = column();
-        box.setBackground(solid(color, 18));
+        box.setBackground(solid(color, 20));
         padding(box, 12, 13, 12, 13);
         box.addView(text(value, 24, ink, true));
         TextView l = text(label, 11, muted, false);
@@ -390,7 +481,13 @@ public class MainActivity extends Activity {
     private void weekly() {
         sectionHeading("YOUR GROWTH, YOUR PACE", "A week to be proud of", "Look back with kindness, not judgement.");
         LinearLayout summary = card();
-        summary.addView(text("Your last 7 days", 17, ink, true));
+        LinearLayout summaryHeading = horizontal();
+        summaryHeading.addView(new IconView("chart", accentDark), new LinearLayout.LayoutParams(dp(22), dp(22)));
+        TextView heading = text("Your last 7 days", 17, ink, true);
+        LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-2, -2);
+        headingParams.leftMargin = dp(8);
+        summaryHeading.addView(heading, headingParams);
+        summary.addView(summaryHeading);
         LinearLayout metrics = horizontal();
         LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(-1, -2);
         mp.topMargin = dp(14);
@@ -405,11 +502,17 @@ public class MainActivity extends Activity {
         metric(metrics2, String.valueOf(db.weekTasks()), "Tasks added", peach);
         View gap2 = new View(this);
         metrics2.addView(gap2, new LinearLayout.LayoutParams(dp(9), 1));
-        metric(metrics2, String.valueOf(db.weekTasks() == 0 ? 0 : Math.round(100f * db.weekDone() / db.weekTasks())) + "%", "Completion", 0xFFF1EFF8);
+        metric(metrics2, String.valueOf(db.weekTasks() == 0 ? 0 : Math.round(100f * db.weekDone() / db.weekTasks())) + "%", "Completion", surfaceVariant);
         summary.addView(metrics2, m2p);
         LinearLayout reflection = card();
-        reflection.setBackground(solid(0xFFFFF6EF, 21));
-        reflection.addView(text("A little reflection 💛", 16, 0xFF9A684F, true));
+        reflection.setBackground(solid(0xFFFFF6F8, 22));
+        LinearLayout reflectionHead = horizontal();
+        reflectionHead.addView(new IconView("sparkle", 0xFF9A526C), new LinearLayout.LayoutParams(dp(20), dp(20)));
+        TextView reflectionTitle = text("A little reflection", 16, 0xFF7D294B, true);
+        LinearLayout.LayoutParams rtp = new LinearLayout.LayoutParams(-2, -2);
+        rtp.leftMargin = dp(7);
+        reflectionHead.addView(reflectionTitle, rtp);
+        reflection.addView(reflectionHead);
         TextView prompt = text("What made you smile this week? What felt challenging? What's one thing you want to do differently next week?", 13, ink, false);
         LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, -2);
         pp.topMargin = dp(8);
@@ -420,5 +523,102 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
         np.topMargin = dp(8);
         latest.addView(note, np);
+    }
+
+    private class IconView extends View {
+        private final String name;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+        private final RectF rect = new RectF();
+
+        IconView(String name, int color) {
+            super(MainActivity.this);
+            this.name = name;
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(1.8f);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            setContentDescription(name + " icon");
+        }
+
+        private void line(Canvas c, float x1, float y1, float x2, float y2) {
+            c.drawLine(x1, y1, x2, y2, paint);
+        }
+
+        private void check(Canvas c, float x, float y) {
+            path.reset();
+            path.moveTo(x, y);
+            path.lineTo(x + 2.2f, y + 2.2f);
+            path.lineTo(x + 6.5f, y - 2.8f);
+            c.drawPath(path, paint);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float scale = Math.min(getWidth(), getHeight()) / 24f;
+            if (scale <= 0) return;
+            canvas.save();
+            canvas.translate((getWidth() - 24 * scale) / 2f, (getHeight() - 24 * scale) / 2f);
+            canvas.scale(scale, scale);
+            switch (name) {
+                case "home":
+                    path.reset();
+                    path.moveTo(3, 10);
+                    path.lineTo(12, 3);
+                    path.lineTo(21, 10);
+                    canvas.drawPath(path, paint);
+                    canvas.drawRoundRect(5, 9, 19, 21, 2, 2, paint);
+                    line(canvas, 10, 21, 10, 15);
+                    line(canvas, 14, 21, 14, 15);
+                    break;
+                case "journal":
+                    canvas.drawRoundRect(5, 3, 19, 21, 2, 2, paint);
+                    line(canvas, 8, 8, 16, 8);
+                    line(canvas, 8, 12, 16, 12);
+                    line(canvas, 8, 16, 13, 16);
+                    break;
+                case "tasks":
+                    canvas.drawRoundRect(3, 4, 9, 10, 1.3f, 1.3f, paint);
+                    canvas.drawRoundRect(3, 14, 9, 20, 1.3f, 1.3f, paint);
+                    check(canvas, 4, 7);
+                    check(canvas, 4, 17);
+                    line(canvas, 12, 7, 21, 7);
+                    line(canvas, 12, 17, 21, 17);
+                    break;
+                case "chart":
+                    line(canvas, 3, 21, 21, 21);
+                    line(canvas, 3, 21, 3, 4);
+                    canvas.drawRoundRect(6, 13, 10, 20, 1, 1, paint);
+                    canvas.drawRoundRect(12, 9, 16, 20, 1, 1, paint);
+                    canvas.drawRoundRect(18, 5, 21, 20, 1, 1, paint);
+                    break;
+                case "plus":
+                    line(canvas, 12, 4, 12, 20);
+                    line(canvas, 4, 12, 20, 12);
+                    break;
+                case "sparkle":
+                    path.reset();
+                    path.moveTo(12, 2);
+                    path.quadTo(13, 10, 22, 12);
+                    path.quadTo(13, 13, 12, 22);
+                    path.quadTo(11, 13, 2, 12);
+                    path.quadTo(11, 10, 12, 2);
+                    canvas.drawPath(path, paint);
+                    break;
+                case "calendar":
+                    canvas.drawRoundRect(3, 5, 21, 21, 2, 2, paint);
+                    line(canvas, 7, 3, 7, 7);
+                    line(canvas, 17, 3, 17, 7);
+                    line(canvas, 3, 9, 21, 9);
+                    line(canvas, 8, 13, 8, 13);
+                    line(canvas, 12, 13, 12, 13);
+                    line(canvas, 16, 13, 16, 13);
+                    line(canvas, 8, 17, 8, 17);
+                    line(canvas, 12, 17, 12, 17);
+                    break;
+            }
+            canvas.restore();
+        }
     }
 }
