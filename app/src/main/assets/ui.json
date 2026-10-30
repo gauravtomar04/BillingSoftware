@@ -1,6 +1,6 @@
 {
   "app": "My Life Journal",
-  "design": "premium-calm-editorial",
+  "design": "jetpack-compose-material3",
   "background": "#F3F6F5",
   "surface": "#FFFFFF",
   "surfaceAlt": "#EAF0EE",
@@ -13,14 +13,6 @@
   "warm": "#F7ECDD",
   "warmInk": "#8A6032",
   "navigation": ["Home", "Journal", "Tasks", "Weekly"],
-  "layout": {
-    "contentHorizontalPadding": 20,
-    "cardRadius": 22,
-    "bottomNavigationHeight": 64,
-    "systemInsets": true
-  },
-  "motion": {
-    "screenFadeMs": 190,
-    "tapFeedback": "native-ripple"
-  }
+  "layout": { "contentPadding": 20, "cardRadius": 22, "systemInsets": true },
+  "motion": { "screenTransitionMs": 180, "moodSelection": "animated-color" }
 }
