@@ -1,1 +1,13 @@
-{"app":"My Life Journal","design":"calm-native","navigation":["Home","Journal","Tasks","Weekly"]}
+{
+  "app": "My Life Journal",
+  "design": "calm-native",
+  "background": "#F5F6FA",
+  "accent": "#6750A4",
+  "navigation": ["Home", "Journal", "Tasks", "Weekly"],
+  "home": {
+    "headline": "A little better, daily.",
+    "moodPrompt": "How are you feeling today?",
+    "progressTitle": "Today's progress",
+    "journalAction": "Write today's journal"
+  }
+}
