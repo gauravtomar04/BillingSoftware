@@ -1,0 +1,71 @@
+name: Build My Life Journal APK
+
+on:
+  push:
+    branches:
+      - mylifejournal-apk-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Compile and verify Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out build branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct Android source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat payload/chunk-*.b64 | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
+          unzip -t "$RUNNER_TEMP/MyLifeJournalAndroid.zip"
+          mkdir -p "$RUNNER_TEMP/mlj-source"
+          unzip -q "$RUNNER_TEMP/MyLifeJournalAndroid.zip" -d "$RUNNER_TEMP/mlj-source"
+          test -f "$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid/settings.gradle"
+          echo "PROJECT_DIR=$RUNNER_TEMP/mlj-source/MyLifeJournalAndroid" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Verify APK package and signature
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          aapt dump badging "$APK" | grep -E "^package:|^application-label:"
+          apksigner verify --verbose "$APK"
+
+      - name: Upload downloadable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyLifeJournal-debug-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
