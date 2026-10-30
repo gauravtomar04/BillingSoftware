@@ -1,0 +1,1 @@
+Trigger another hosted APK compile after making app module inclusion explicit.
