@@ -1,27 +1,26 @@
 {
   "app": "My Life Journal",
-  "design": "material-3-inspired-native",
-  "background": "#F7F5FA",
-  "surface": "#FFFBFE",
-  "surfaceVariant": "#F1ECF4",
-  "accent": "#6750A4",
-  "accentDark": "#4F378B",
-  "text": "#1D1B20",
-  "muted": "#625B71",
-  "outline": "#CAC4D0",
-  "lavender": "#EADDFF",
-  "peach": "#FFD8E4",
-  "mint": "#DCECE0",
+  "design": "premium-calm-editorial",
+  "background": "#F3F6F5",
+  "surface": "#FFFFFF",
+  "surfaceAlt": "#EAF0EE",
+  "accent": "#176B63",
+  "accentDark": "#104D48",
+  "text": "#172A2C",
+  "muted": "#718080",
+  "line": "#E0E8E5",
+  "accentSoft": "#DDEFEA",
+  "warm": "#F7ECDD",
+  "warmInk": "#8A6032",
   "navigation": ["Home", "Journal", "Tasks", "Weekly"],
-  "motion": {
-    "screenEnterMs": 240,
-    "pressMs": 85,
-    "staggerMs": 35
+  "layout": {
+    "contentHorizontalPadding": 20,
+    "cardRadius": 22,
+    "bottomNavigationHeight": 64,
+    "systemInsets": true
   },
-  "home": {
-    "headline": "A little better, every single day.",
-    "moodPrompt": "How's your heart today?",
-    "progressTitle": "Today's little wins",
-    "journalAction": "Write journal"
+  "motion": {
+    "screenFadeMs": 190,
+    "tapFeedback": "native-ripple"
   }
 }
