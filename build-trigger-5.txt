@@ -1,0 +1,1 @@
+Trigger build with Android platform default theme and no external app icon resource.
