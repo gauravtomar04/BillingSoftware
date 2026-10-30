@@ -1,0 +1,1 @@
+Trigger next Android APK build after recreating the Android manifest in the build workspace.
